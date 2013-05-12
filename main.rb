@@ -5,65 +5,67 @@ require 'bcrypt'
 require 'haml'
 require 'sinatra'
 require 'mongo'
- 
+
 enable :sessions
- 
-userTable = {}
- 
+
+client = Mongo::MongoClient.new('localhost', 27017)
+db = client.db('auth-example')
+users = db.collection('users')
+
 helpers do
-  
-  def login?
-    if session[:username].nil?
-      return false
-    else
-      return true
+    def login?
+        if session[:username].nil?
+            return false
+        else
+            return true
+        end
     end
-  end
-  
-  def username
-    return session[:username]
-  end
-  
+
+    def username
+        return session[:username]
+    end
 end
- 
+
 get "/" do
-  haml :index
+    haml :index
 end
- 
+
 get "/signup" do
-  haml :signup
+    haml :signup
 end
- 
+
 post "/signup" do
-  password_salt = BCrypt::Engine.generate_salt
-  password_hash = BCrypt::Engine.hash_secret(params[:password], password_salt)
-  
-  #ideally this would be saved into a database, hash used just for sample
-  userTable[params[:username]] = {
-    :salt => password_salt,
-    :passwordhash => password_hash 
-  }
-  
-  session[:username] = params[:username]
-  redirect "/"
+    password_salt = BCrypt::Engine.generate_salt
+    password_hash = BCrypt::Engine.hash_secret(params[:password], password_salt)
+
+    # save into mongodb
+    id = users.insert({
+            :_id => params[:username],
+            :salt => password_salt,
+            :passwordhash => password_hash 
+        })
+
+    puts "WTFFFFF #{id}"
+
+    session[:username] = params[:username]
+    redirect "/"
 end
- 
+
 post "/login" do
-  if userTable.has_key?(params[:username])
-    user = userTable[params[:username]]
-    if user[:passwordhash] == BCrypt::Engine.hash_secret(params[:password], user[:salt])
-      session[:username] = params[:username]
-      redirect "/"
+    if user = users.find_one({:_id => params[:username]})
+        if user["passwordhash"] == BCrypt::Engine.hash_secret(params[:password], user["salt"])
+            session[:username] = params[:username]
+            redirect "/"
+        end
     end
-  end
-  haml :error
+    haml :error
 end
- 
+
 get "/logout" do
-  session[:username] = nil
-  redirect "/"
+    session[:username] = nil
+    redirect "/"
 end
- 
+
 __END__
 @@layout
 !!! 5
