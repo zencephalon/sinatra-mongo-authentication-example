@@ -45,8 +45,6 @@ post "/signup" do
             :passwordhash => password_hash 
         })
 
-    puts "WTFFFFF #{id}"
-
     session[:username] = params[:username]
     redirect "/"
 end
